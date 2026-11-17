@@ -1,5 +1,7 @@
 # Job Workflow Skills
 
+**Grok Bot users:** start with [GROK_BOT_SETUP.md](GROK_BOT_SETUP.md). These workflows have not yet been tested inside Grok Bot.
+
 A human-led job search toolkit with two agent skills, a local SQLite queue, optional public Greenhouse board discovery, offline filtering and reports, a cover-letter outline, and application packets based on candidate-approved facts. Early preview; review all outputs. It does not automatically fill forms or submit applications.
 
 ## Setup

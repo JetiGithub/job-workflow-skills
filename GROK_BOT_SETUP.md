@@ -1,0 +1,11 @@
+# Using these workflows with Grok Bot
+
+This repository is an early preview of two instructions intended for Grok Bot, plus optional Python helpers. It has **not been installed or end-to-end tested in Grok Bot**. The exact available tools, files, approvals and connectors depend on the user's account and Bot.
+
+1. Review `skills/job-scout/SKILL.md` and `skills/application-assistant/SKILL.md`. In Grok Bot, ask the relevant Bot to read the desired instructions and save them as a private skill. The official [Skills and routines guide](https://docs.x.ai/grok-bot/skills-routines-and-automations) describes saving skills and enabling private skills. It does not establish that a GitHub URL automatically installs these scripts; this project does not claim one-click installation.
+2. If using the Python helpers, make a copy of the full repository accessible to both Bot execution environments. Verify Python 3.9+ and the shared private database path on a suitable local filesystem. A copied skill text by itself does not provide these files. If Bots cannot access the same database, use an explicitly approved private handoff instead and do not run the helper against separate copies as if synchronized.
+3. Create private configuration and candidate profile files from the fictional examples. Give the Bots only the access needed. Do not place resumes, credentials, real job records or configuration in the public repository. Use the platform's secure sign-in for credentials.
+4. Test the queue and report with `examples/jobs.json`, then check the handoff in the second Bot. Test Review and Draft modes before any schedule or real application. The repository's tests cover local Python behavior, not actual Grok Bot installation, browser interactions, external connections or submission.
+5. Ask Grok Bot to set up a routine only after a successful manual test and only if desired. Confirm schedule, time zone, owner, sources, storage and failure behavior. A routine or skill does not override the requirement for explicit authorization of each final application submission.
+
+For local helper commands and current limitations see the [README](README.md). Optional connectors, browser access and document generation are host capabilities and are not bundled integrations.
