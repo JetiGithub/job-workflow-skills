@@ -11,7 +11,7 @@ TRANSITIONS = {
  'needs_verification': {'preparing', 'waiting_user', 'closed', 'skipped'},
  'preparing': {'waiting_user', 'submission_unknown', 'closed', 'skipped'},
  'waiting_user': {'needs_verification', 'preparing', 'submission_unknown', 'closed', 'skipped'},
- 'submission_unknown': {'submitted', 'waiting_user', 'closed'},
+ 'submission_unknown': {'submitted'},
  'submitted': {'closed'}, 'closed': set(), 'skipped': {'needs_verification'},
 }
 
@@ -66,6 +66,19 @@ def transition(con, job_id, target, evidence=''):
     except BaseException:
         con.rollback(); raise
 
+def resolve_not_submitted(con, job_id, evidence):
+    """Record an explicit reconciliation before permitting another attempt."""
+    if not evidence.strip(): raise ValueError('Reconciliation evidence is required')
+    con.execute('BEGIN IMMEDIATE')
+    try:
+        row = con.execute('SELECT status FROM jobs WHERE id=?', (job_id,)).fetchone()
+        if not row or row[0] != 'submission_unknown': raise ValueError('Job must be submission_unknown')
+        con.execute("UPDATE jobs SET status='preparing', updated_at=CURRENT_TIMESTAMP WHERE id=?", (job_id,))
+        con.execute("INSERT INTO events(job_id,kind,detail) VALUES(?, 'reconciled_not_submitted', ?)", (job_id,evidence.strip()))
+        con.commit()
+    except BaseException:
+        con.rollback(); raise
+
 def main():
     p=argparse.ArgumentParser(description=__doc__); p.add_argument('--db',default='private/jobs.sqlite3')
     sub=p.add_subparsers(dest='cmd',required=True)
@@ -73,6 +86,7 @@ def main():
     sub.add_parser('list')
     t=sub.add_parser('status'); t.add_argument('id',type=int); t.add_argument('status',choices=sorted(STATES)); t.add_argument('--evidence',default='')
     s=sub.add_parser('save'); s.add_argument('id',type=int)
+    r=sub.add_parser('resolve-not-submitted'); r.add_argument('id',type=int); r.add_argument('--evidence',required=True)
     args=p.parse_args(); Path(args.db).parent.mkdir(parents=True,exist_ok=True)
     with connect(args.db) as con:
         if args.cmd=='add':
@@ -81,6 +95,8 @@ def main():
         elif args.cmd=='list':
             con.row_factory=sqlite3.Row
             print(json.dumps([dict(x) for x in con.execute('SELECT * FROM jobs ORDER BY id')],indent=2))
+        elif args.cmd=='resolve-not-submitted':
+            resolve_not_submitted(con,args.id,args.evidence); print('reconciled')
         elif args.cmd=='save':
             cur=con.execute('UPDATE jobs SET saved=1 WHERE id=?',(args.id,))
             if not cur.rowcount: raise ValueError('Job not found')

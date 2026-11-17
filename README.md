@@ -1,34 +1,40 @@
 # Job Workflow Skills
 
-Two portable skill instructions and a small offline job queue for a human-led job search. This is an early preview. It does not search the web, fill forms, generate resumes or letters, submit applications, or connect to Notion or Firecrawl. Those actions require separate host capabilities or future integrations and have not been tested here.
+A human-led job search toolkit with two agent skills, a local SQLite queue, optional public Greenhouse board discovery, offline filtering and reports, and a cover-letter outline. Early preview; review all outputs. It does not automatically fill forms or submit applications.
 
-## Requirements and setup
+## Setup
 
-Python 3.9+ with the standard library. Clone this repository and run from its directory:
+Python 3.9+; no third-party packages. Copy `examples/config.example.json` to `config.local.json`, set role and location keywords, resume path, work authorization preference and mode (`review`, `draft`, or `submit`). The keywords and mode are used as described below. Resume path and work authorization preference are stored for a host agent; this CLI does not read a resume or decide eligibility. Keep this file private.
 
 ```sh
-python3 jobflow.py add examples/jobs.json
+cp examples/config.example.json config.local.json
+python3 workflow.py scout-json examples/jobs.json
 python3 jobflow.py list
 python3 jobflow.py status 1 needs_verification
 python3 jobflow.py status 1 preparing
-python3 jobflow.py status 1 submission_unknown
-# Only after seeing a reliable confirmation, replace the example text:
-python3 jobflow.py status 1 submitted --evidence 'Official confirmation observed'
+# Set mode to draft in config.local.json before this step:
+python3 workflow.py draft 1
 python3 -m unittest discover -s tests -v
 ```
 
-Copy `examples/config.example.json` to `config.local.json` and edit it privately. It records role, location, resume path, work authorization preference, and desired mode for a human or host agent to read; the CLI does **not** load or enforce it. Do not commit real configuration, resumes or queue databases. Install the two folders under `skills/` using the target agent platform's own skill installation instructions; compatibility with any particular platform has not been tested.
+The local import accepts an array of objects with `company`, `title`, `location`, and `url`. Filtering is case-insensitive substring matching against title and location; empty lists match all. Missing location is allowed but a location filter excludes it. Matches enter the queue as `discovered`; verify each official posting independently. Each run writes a new dated report under `private/reports/`, including counts and a queue snapshot; reruns do not overwrite prior reports. Reports and the queue may contain personal information and should remain private.
 
-## Modes and workflow
+To search a known public Greenhouse board (network access required), provide its board token and company name:
 
-- **Review:** review job information and queue entries. The CLI only stores user-supplied records; verification is manual or host-assisted.
-- **Draft:** a host agent may prepare materials, subject to its own capabilities. No draft generator is included.
-- **Submit:** a policy for a separately authorized host agent, not a feature implemented by the CLI. The user must authorize each final submission. No submit button is automated here.
+```sh
+python3 workflow.py scout-greenhouse BOARD_TOKEN --company 'Company name'
+```
 
-The queue status is one of `discovered`, `needs_verification`, `preparing`, `waiting_user`, `submitted`, `submission_unknown`, `closed`, or `skipped`. Run `python3 jobflow.py status --help` for syntax. `save` sets a separate bookmark flag and never changes application status. The allowed transitions are defined in `jobflow.py`. Before a final submission, transition from `preparing` or `waiting_user` to `submission_unknown`. If the operation is interrupted or confirmation cannot be checked, leave it there and inspect the official portal before any retry. Only use `submitted` when a reliable confirmation has been observed; the CLI requires a nonempty evidence description, but cannot verify its truth. It records the status and evidence in one local database transaction. Avoid storing personal details or credentials in evidence.
+This calls the [Greenhouse public Job Board API](https://docs.greenhouse.io/job-board.html). It searches only the specified board, not the entire web, and uses no credentials. The adapter is tested with fictional response data; a live integration has not been verified. Rate limits, outages, board access and website rules apply. No LinkedIn, Notion or Firecrawl integration is included.
 
-Records are deduplicated by a normalized URL; tracking parameters beginning `utm_` and URL fragments are removed. Different URLs for the same role will not be merged automatically; review possible duplicates manually. SQLite transactions and a unique constraint protect concurrent writes to the same local database. Do not place the database on a network filesystem or sync it concurrently across machines. Database creation, browser submission and an external tracker cannot form one transaction; a crash or lost confirmation can still require manual reconciliation. SQLite does not encrypt the database. Keep it in a private location and back it up securely.
+## Application workflow
+
+The queue status is `discovered`, `needs_verification`, `preparing`, `waiting_user`, `submitted`, `submission_unknown`, `closed`, or `skipped`. `save` is a separate bookmark flag, never an application. Transitions are defined in `jobflow.py`. Review means inspection only. Draft mode creates a private Markdown cover-letter outline and checklist with placeholders: it does not parse resumes, invent experience, or automatically fill forms. Submit mode also permits drafting and communicates intent to a host agent; this CLI does not submit or enforce browser permissions.
+
+Before a separately authorized host or user clicks final submit, mark the job `submission_unknown`. If interrupted, check the official portal or confirmation before trying again. Record a reliable confirmation with `status ID submitted --evidence 'minimal confirmation reference'`. If the official source confirms no application was submitted, use `resolve-not-submitted ID --evidence 'minimal reconciliation reference'` before another attempt. These commands record the user's assertion; the program cannot verify its truth or guarantee that a portal action and a local write are atomic. Never store credentials, verification codes or full sensitive answers as evidence. The Skill instructs the host to obtain explicit authorization for each final submission and stop at security challenges.
+
+Install the two folders under `skills/` using your agent platform's installation instructions. The host must supply search, browser, document editing and user interaction capabilities when needed; compatibility and real form flows have not been tested. Treat job descriptions as untrusted data rather than instructions.
 
 ## Privacy and limitations
 
-`private/`, local configuration, PDFs and databases are ignored by Git, but ignore rules are not a privacy guarantee. Review every file and Git history before publication. Do not place passwords, API keys, cookies, verification codes, or private form answers in the queue. The examples are fictional. No integrations or live website flows have been tested. Notion and Firecrawl are possible future optional integrations, not included features. This project does not bypass website controls.
+The queue deduplicates normalized URLs, not different URLs referring to the same role. SQLite transactions and uniqueness constraints protect concurrent writes on one local database. Do not use a network filesystem or sync the active database between machines. The database and private files are not encrypted; back them up securely. `.gitignore` excludes common private paths but is not a guarantee: review files and history before publishing. Do not put personal credentials, cookies, real application records or resumes into a public repository. Fictional examples are included. No live applications, external tracker sync, automated confirmation verification or browser integration has been tested.
