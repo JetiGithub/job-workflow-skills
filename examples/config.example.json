@@ -1,0 +1,7 @@
+{
+  "roles": ["data analyst", "research intern"],
+  "locations": ["Remote", "Boston"],
+  "resume_path": "private/resume.pdf",
+  "work_authorization_preferences": "Ask me; do not infer",
+  "mode": "review"
+}
