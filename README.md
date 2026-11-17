@@ -1,6 +1,6 @@
 # Job Workflow Skills
 
-A human-led job search toolkit with two agent skills, a local SQLite queue, optional public Greenhouse board discovery, offline filtering and reports, and a cover-letter outline. Early preview; review all outputs. It does not automatically fill forms or submit applications.
+A human-led job search toolkit with two agent skills, a local SQLite queue, optional public Greenhouse board discovery, offline filtering and reports, a cover-letter outline, and application packets based on candidate-approved facts. Early preview; review all outputs. It does not automatically fill forms or submit applications.
 
 ## Setup
 
@@ -14,6 +14,10 @@ python3 jobflow.py status 1 needs_verification
 python3 jobflow.py status 1 preparing
 # Set mode to draft in config.local.json before this step:
 python3 workflow.py draft 1
+# Copy and edit the fictional example privately before using it:
+cp examples/candidate.example.json private/candidate.json
+python3 application.py 1 --profile private/candidate.json
+python3 jobflow.py history 1
 python3 -m unittest discover -s tests -v
 ```
 
@@ -25,11 +29,13 @@ To search a known public Greenhouse board (network access required), provide its
 python3 workflow.py scout-greenhouse BOARD_TOKEN --company 'Company name'
 ```
 
+A single posting can be checked with `python3 workflow.py verify-greenhouse ID BOARD_TOKEN POSTING_ID`. This compares its returned URL to the queued URL and reports the title; it does not change status, confirm eligibility, or guarantee that the position is open. Errors and URL mismatches need manual review.
+
 This calls the [Greenhouse public Job Board API](https://docs.greenhouse.io/job-board.html). It searches only the specified board, not the entire web, and uses no credentials. The adapter is tested with fictional response data; a live integration has not been verified. Rate limits, outages, board access and website rules apply. No LinkedIn, Notion or Firecrawl integration is included.
 
 ## Application workflow
 
-The queue status is `discovered`, `needs_verification`, `preparing`, `waiting_user`, `submitted`, `submission_unknown`, `closed`, or `skipped`. `save` is a separate bookmark flag, never an application. Transitions are defined in `jobflow.py`. Review means inspection only. Draft mode creates a private Markdown cover-letter outline and checklist with placeholders: it does not parse resumes, invent experience, or automatically fill forms. Submit mode also permits drafting and communicates intent to a host agent; this CLI does not submit or enforce browser permissions.
+The queue status is `discovered`, `needs_verification`, `preparing`, `waiting_user`, `submitted`, `submission_unknown`, `closed`, or `skipped`. `save` is a separate bookmark flag, never an application. Transitions are defined in `jobflow.py`. Review means inspection only. Draft mode can create a private Markdown outline, or an application packet containing a resume-content section and cover-letter draft from a candidate-approved JSON profile. Claims are copied from that profile; the tool does not parse an existing resume, tailor claims to a job description, guarantee document formatting, invent experience, or automatically fill forms. The candidate must edit and verify every statement. The packet is Markdown, not a finished PDF or DOCX resume. Submit mode also permits drafting and communicates intent to a host agent; this CLI does not submit or enforce browser permissions.
 
 Before a separately authorized host or user clicks final submit, mark the job `submission_unknown`. If interrupted, check the official portal or confirmation before trying again. Record a reliable confirmation with `status ID submitted --evidence 'minimal confirmation reference'`. If the official source confirms no application was submitted, use `resolve-not-submitted ID --evidence 'minimal reconciliation reference'` before another attempt. These commands record the user's assertion; the program cannot verify its truth or guarantee that a portal action and a local write are atomic. Never store credentials, verification codes or full sensitive answers as evidence. The Skill instructs the host to obtain explicit authorization for each final submission and stop at security challenges.
 

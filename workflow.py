@@ -43,6 +43,24 @@ def fetch_greenhouse(slug):
     if len(data)>5_000_000: raise ValueError('Board response exceeds size limit')
     return greenhouse_jobs(json.loads(data))
 
+def verify_greenhouse(con, job_id, board, posting_id):
+    """Compare a single public board response with the queued URL; no status changes."""
+    if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', board) or not re.fullmatch(r'[0-9]{1,20}', str(posting_id)):
+        raise ValueError('Invalid board token or posting ID')
+    row=con.execute('SELECT url FROM jobs WHERE id=?',(job_id,)).fetchone()
+    if not row: raise ValueError('Job not found')
+    url=f'https://boards-api.greenhouse.io/v1/boards/{board}/jobs/{posting_id}'
+    req=Request(url,headers={'User-Agent':'job-workflow-skills/0.2','Accept':'application/json'})
+    with build_opener(NoRedirect).open(req,timeout=15) as response:
+        data=response.read(5_000_001)
+    if len(data)>5_000_000: raise ValueError('Job response exceeds size limit')
+    job=json.loads(data)
+    if not isinstance(job,dict) or not isinstance(job.get('absolute_url'),str) or not isinstance(job.get('title'),str):
+        raise ValueError('Invalid job response')
+    same=jobflow.canonical_url(job['absolute_url']) == jobflow.canonical_url(row[0])
+    return {'url_matches':same,'title':job['title'],'checked_at':datetime.now(timezone.utc).isoformat(),
+            'note':'A response is not proof of eligibility or guaranteed availability; review the official posting.'}
+
 def matches(job, cfg):
     def any_match(terms, value):
         return not terms or any(term.casefold() in value.casefold() for term in terms if term.strip())
@@ -105,10 +123,12 @@ def main():
     i=sub.add_parser('scout-json'); i.add_argument('file'); i.add_argument('--reports',default='private/reports')
     g=sub.add_parser('scout-greenhouse'); g.add_argument('board'); g.add_argument('--company',required=True); g.add_argument('--reports',default='private/reports')
     d=sub.add_parser('draft'); d.add_argument('id',type=int); d.add_argument('--output',default='private/drafts')
+    v=sub.add_parser('verify-greenhouse'); v.add_argument('id',type=int); v.add_argument('board'); v.add_argument('posting_id')
     args=p.parse_args(); cfg=load_config(args.config)
     Path(args.db).parent.mkdir(parents=True,exist_ok=True)
     with jobflow.connect(args.db) as con:
         if args.command=='draft': print(draft(con,args.id,cfg,args.output)); return
+        if args.command=='verify-greenhouse': print(json.dumps(verify_greenhouse(con,args.id,args.board,args.posting_id))); return
         if args.command=='scout-json':
             records=json.loads(Path(args.file).read_text(encoding='utf-8'))
             if not isinstance(records,list): raise ValueError('Input must be a JSON array')

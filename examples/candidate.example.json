@@ -1,0 +1,9 @@
+{
+  "name": "Alex Example",
+  "summary": "I am a fictional data analyst with experience analyzing sample datasets.",
+  "facts": [
+    "Built a fictional dashboard to summarize sample survey data.",
+    "Used Python to clean and visualize a fictional dataset."
+  ],
+  "motivation": "I am interested in applying these skills to the responsibilities described in the posting."
+}

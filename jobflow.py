@@ -84,6 +84,7 @@ def main():
     sub=p.add_subparsers(dest='cmd',required=True)
     a=sub.add_parser('add'); a.add_argument('json_file')
     sub.add_parser('list')
+    h=sub.add_parser('history'); h.add_argument('id',type=int)
     t=sub.add_parser('status'); t.add_argument('id',type=int); t.add_argument('status',choices=sorted(STATES)); t.add_argument('--evidence',default='')
     s=sub.add_parser('save'); s.add_argument('id',type=int)
     r=sub.add_parser('resolve-not-submitted'); r.add_argument('id',type=int); r.add_argument('--evidence',required=True)
@@ -95,6 +96,9 @@ def main():
         elif args.cmd=='list':
             con.row_factory=sqlite3.Row
             print(json.dumps([dict(x) for x in con.execute('SELECT * FROM jobs ORDER BY id')],indent=2))
+        elif args.cmd=='history':
+            con.row_factory=sqlite3.Row
+            print(json.dumps([dict(x) for x in con.execute('SELECT kind,detail,created_at FROM events WHERE job_id=? ORDER BY id',(args.id,))],indent=2))
         elif args.cmd=='resolve-not-submitted':
             resolve_not_submitted(con,args.id,args.evidence); print('reconciled')
         elif args.cmd=='save':

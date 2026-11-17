@@ -23,6 +23,18 @@ class WorkflowTests(unittest.TestCase):
   payload={'jobs':[{'title':'Data Analyst','absolute_url':'https://example.test/job','location':{'name':'Remote'}},{'title':None}]}
   self.assertEqual(len(workflow.greenhouse_jobs(payload)),1)
   with self.assertRaises(ValueError): workflow.fetch_greenhouse('../bad')
+ def test_verify_requires_matching_url_and_keeps_status(self):
+  ident,_=jobflow.add(self.con,self.jobs[0])
+  class Response:
+   def __enter__(self): return self
+   def __exit__(self,*args): pass
+   def read(self,n): return json.dumps({'title':'Analyst','absolute_url':'https://example.test/1'}).encode()
+  class Opener:
+   def open(self,*args,**kwargs): return Response()
+  with patch('workflow.build_opener',return_value=Opener()):
+   self.assertTrue(workflow.verify_greenhouse(self.con,ident,'fictional','123')['url_matches'])
+  self.assertEqual(self.con.execute('SELECT status FROM jobs').fetchone()[0],'discovered')
+  with self.assertRaises(ValueError): workflow.verify_greenhouse(self.con,ident,'../bad','123')
  def test_draft_mode_and_placeholder(self):
   ident,_=jobflow.add(self.con,self.jobs[0]); jobflow.transition(self.con,ident,'needs_verification'); jobflow.transition(self.con,ident,'preparing')
   with self.assertRaises(ValueError): workflow.draft(self.con,ident,{**self.config,'mode':'review'},self.root/'drafts')
